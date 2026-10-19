@@ -96,6 +96,8 @@ int nua_stack_process_request(nua_handle_t *nh,
   int create_dialog;
 
   char const *user_agent = NH_PGET(nh, user_agent);
+  /* on every response sent from here, as nua_server_respond() does */
+  char const *core_uuid = NH_PGET(nh, x_fs_core_uuid);
   sip_supported_t const *supported = NH_PGET(nh, supported);
   sip_allow_t const *allow = NH_PGET(nh, allow);
 
@@ -117,6 +119,7 @@ int nua_stack_process_request(nua_handle_t *nh,
   if (nta_check_method(irq, sip, allow,
 		       SIPTAG_SUPPORTED(supported),
 		       SIPTAG_USER_AGENT_STR(user_agent),
+		       TAG_IF(core_uuid, SIPTAG_X_FS_CORE_UUID_STR(core_uuid)),
 		       TAG_END()))
     return 405;
 
@@ -133,6 +136,7 @@ int nua_stack_process_request(nua_handle_t *nh,
 			SIPTAG_ALLOW(allow),
 			SIPTAG_SUPPORTED(supported),
 			SIPTAG_USER_AGENT_STR(user_agent),
+			TAG_IF(core_uuid, SIPTAG_X_FS_CORE_UUID_STR(core_uuid)),
 			TAG_END());
     return status;
   }
@@ -140,6 +144,7 @@ int nua_stack_process_request(nua_handle_t *nh,
   if (nta_check_required(irq, sip, supported,
 			 SIPTAG_ALLOW(allow),
 			 SIPTAG_USER_AGENT_STR(user_agent),
+			 TAG_IF(core_uuid, SIPTAG_X_FS_CORE_UUID_STR(core_uuid)),
 			 TAG_END()))
     return 420;
 
@@ -180,6 +185,7 @@ int nua_stack_process_request(nua_handle_t *nh,
 			SIPTAG_ALLOW(allow),
 			SIPTAG_SUPPORTED(supported),
 			SIPTAG_USER_AGENT_STR(user_agent),
+			TAG_IF(core_uuid, SIPTAG_X_FS_CORE_UUID_STR(core_uuid)),
 			TAG_END());
     return status;
   }
@@ -267,6 +273,7 @@ int nua_stack_process_request(nua_handle_t *nh,
         sip->sip_timestamp) {
 		nta_incoming_treply(irq, SIP_100_TRYING,
 							SIPTAG_USER_AGENT_STR(user_agent),
+							TAG_IF(core_uuid, SIPTAG_X_FS_CORE_UUID_STR(core_uuid)),
 							TAG_END());
 
     }
@@ -315,7 +322,10 @@ void nua_server_request_destroy(nua_server_request_t *sr)
   if (sr->sr_irq) {
 	nta_incoming_t *irq = sr->sr_irq;
     if (sr->sr_method == sip_method_bye && sr->sr_status < 200) {
-      nta_incoming_treply(sr->sr_irq, SIP_200_OK, TAG_END());
+      char const *core_uuid = NH_PGET(sr->sr_owner, x_fs_core_uuid);
+      nta_incoming_treply(sr->sr_irq, SIP_200_OK,
+                          TAG_IF(core_uuid, SIPTAG_X_FS_CORE_UUID_STR(core_uuid)),
+                          TAG_END());
     }
 	sr->sr_irq = NULL;
     nta_incoming_destroy(irq);
@@ -638,7 +648,9 @@ int nua_server_respond(nua_server_request_t *sr, tagi_t const *tags)
 
  internal_error:
   sr->sr_response.msg = NULL, sr->sr_response.sip = NULL;
-  nta_incoming_treply(sr->sr_irq, sr->sr_status, sr->sr_phrase, TAG_END());
+  nta_incoming_treply(sr->sr_irq, sr->sr_status, sr->sr_phrase,
+                      TAG_IF(NH_PGET(nh, x_fs_core_uuid), SIPTAG_X_FS_CORE_UUID_STR(NH_PGET(nh, x_fs_core_uuid))),
+                      TAG_END());
 
   return 0;
 }
@@ -665,9 +677,12 @@ int nua_base_server_respond(nua_server_request_t *sr, tagi_t const *tags)
   }
 
   if (sr->sr_status != sip->sip_status->st_status) {
+    char const *core_uuid = NH_PGET(sr->sr_owner, x_fs_core_uuid);
     msg_destroy(response);
     SR_STATUS1(sr, SIP_500_INTERNAL_SERVER_ERROR);
-    nta_incoming_treply(sr->sr_irq, sr->sr_status, sr->sr_phrase, TAG_END());
+    nta_incoming_treply(sr->sr_irq, sr->sr_status, sr->sr_phrase,
+                        TAG_IF(core_uuid, SIPTAG_X_FS_CORE_UUID_STR(core_uuid)),
+                        TAG_END());
     return 0;
   }
 

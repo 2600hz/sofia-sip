@@ -1313,7 +1313,6 @@ int nua_invite_client_ack(nua_client_request_t *cr, tagi_t const *tags)
       sip_header_remove(msg, sip, (sip_header_t*)sip->sip_supported);
 
     if (!sip->sip_x_fs_core_uuid && NH_PGET(nh, x_fs_core_uuid)) {
-      SU_DEBUG_1(("ADD SIP TAG HEADER (%s): \n", (char const *)NH_PGET(nh, x_fs_core_uuid)));
       sip_add_make(msg, sip, sip_x_fs_core_uuid_class, NH_PGET(nh, x_fs_core_uuid));
     }
 
